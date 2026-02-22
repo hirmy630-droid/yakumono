@@ -171,11 +171,13 @@
                 if (history.length === 0) return;
                 const pieces = history.reduce((acc, cur) => acc + (cur.pieces || 0), 0);
                 const totalDistance = history.reduce((acc, cur) => acc + toNum(cur.total), 0);
+                const totalRemainder = history.reduce((acc, cur) => acc + toNum(cur.remainder), 0); // 端材の合計を追加
                 const newTallies = [{
                     id: Date.now().toString(),
                     name: currentProductName,
                     pieces,
                     totalDistance,
+                    totalRemainder,
                     createdAt: Date.now()
                 }, ...savedTallies];
                 setSavedTallies(newTallies);
@@ -290,7 +292,15 @@
 
                     <header className="flex flex-col gap-3 border-b border-zinc-700 pb-4">
                         <div className="flex items-center gap-3">
-                            <div className="bg-blue-600 p-2 rounded-xl border-b-4 border-blue-900 shadow-lg"><Icon name="calculator" className="text-white" /></div>
+                            {/* KYOWA ROOF オリジナルアイコン (CSS/HTMLで作成) */}
+                            <div className="w-12 h-12 rounded-2xl shadow-xl border border-zinc-700 shrink-0 bg-gradient-to-br from-zinc-800 to-zinc-950 flex flex-col items-center justify-center relative overflow-hidden">
+                                <div className="absolute -right-2 -top-2 w-8 h-8 bg-blue-600 rounded-full blur-xl opacity-40"></div>
+                                <div className="absolute -left-2 -bottom-2 w-6 h-6 bg-orange-600 rounded-full blur-xl opacity-30"></div>
+                                <div className="relative z-10 flex items-baseline tracking-tighter">
+                                    <span className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-zinc-400 italic">K</span>
+                                    <span className="text-sm font-black text-blue-500 italic ml-0.5">R</span>
+                                </div>
+                            </div>
                             <div>
                                 <h1 className="text-xl font-bold text-white leading-none">役物材料 計算</h1>
                                 <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-tighter mt-1">KYOWA ROOF</p>
@@ -306,7 +316,7 @@
                         <div className="space-y-6 animate-fade-in">
                             <div className="space-y-1">
                                 <label className="text-sm font-bold text-zinc-400 ml-1">品名</label>
-                                <input type="text" value={currentProductName} onFocus={handleFocus} onChange={(e) => setCurrentProductName(e.target.value)} className="w-full bg-zinc-900 border-2 border-orange-500 rounded-2xl py-3 px-4 text-base text-zinc-200 outline-none font-bold transition-colors shadow-inner" placeholder="例：水切り、笠木..." />
+                                <input type="text" value={currentProductName} onFocus={handleFocus} onChange={(e) => setCurrentProductName(e.target.value)} className="w-full bg-zinc-900 border-2 border-zinc-600 rounded-2xl py-3 px-4 text-base text-zinc-200 outline-none font-bold transition-colors shadow-inner focus:border-zinc-400" placeholder="例：水切り、笠木..." />
                             </div>
 
                             <section className="grid grid-cols-2 gap-3">
@@ -320,11 +330,19 @@
                                 </div>
                             </section>
 
+                            <div className="space-y-2 text-center">
+                                <label className="text-sm font-bold text-zinc-400">距離（mm）</label>
+                                <div className="relative h-14 group">
+                                    <input type="text" inputMode="decimal" value={format(totalDim)} onFocus={handleFocus} onChange={(e) => setTotalDim(unformat(e.target.value))} className="w-full h-full bg-zinc-900 border-2 border-zinc-600 rounded-2xl text-2xl text-white text-center outline-none font-bold pr-14 shadow-inner focus:border-zinc-500 transition-all" placeholder="0" />
+                                    <button onClick={clearDistance} className="absolute right-1 top-1 bottom-1 w-12 flex items-center justify-center rounded-xl text-zinc-500 hover:text-zinc-300 active:scale-95 transition-all"><Icon name="x" size={24} /></button>
+                                </div>
+                            </div>
+
                             <section className="bg-zinc-900 p-4 rounded-3xl border border-zinc-800 space-y-3 shadow-xl">
                                 <div className="space-y-2">
                                     <label className="text-sm font-bold text-zinc-400 ml-1 uppercase">数値入力</label>
                                     <div className="flex gap-2 items-stretch h-14">
-                                        <input ref={calcInputRef} type="text" inputMode="decimal" value={format(calcInput)} onFocus={handleFocus} onChange={(e) => setCalcInput(unformat(e.target.value))} onKeyDown={(e) => e.key === 'Enter' && addValue()} className="flex-1 min-w-0 bg-zinc-950 border-2 border-zinc-600 rounded-2xl text-xl text-white text-center focus:ring-2 focus:ring-orange-400 outline-none shadow-inner font-bold" placeholder="0" />
+                                        <input ref={calcInputRef} type="text" inputMode="decimal" value={format(calcInput)} onFocus={handleFocus} onChange={(e) => setCalcInput(unformat(e.target.value))} onKeyDown={(e) => e.key === 'Enter' && addValue()} className="flex-1 min-w-0 bg-zinc-950 border-2 border-orange-500 rounded-2xl text-xl text-white text-center focus:border-orange-400 outline-none shadow-inner font-bold transition-colors" placeholder="0" />
                                         <button onClick={addValue} className="w-14 shrink-0 rounded-2xl text-white flex items-center justify-center shadow-lg btn-3d btn-3d-blue"><Icon name="plus" size={32} /></button>
                                     </div>
                                 </div>
@@ -340,16 +358,7 @@
                                 </div>
                             </section>
 
-                            <section className="space-y-3 text-center">
-                                <div className="space-y-2">
-                                    <label className="text-sm font-bold text-zinc-400">距離（mm）</label>
-                                    <div className="relative h-14 group">
-                                        <input type="text" inputMode="decimal" value={format(totalDim)} onFocus={handleFocus} onChange={(e) => setTotalDim(unformat(e.target.value))} className="w-full h-full bg-zinc-900 border-2 border-orange-500 rounded-2xl text-2xl text-white text-center outline-none font-bold pr-14 shadow-inner focus:border-orange-400 transition-all" placeholder="0" />
-                                        <button onClick={clearDistance} className="absolute right-1 top-1 bottom-1 w-12 flex items-center justify-center rounded-xl text-zinc-500 hover:text-zinc-300 active:scale-95 transition-all"><Icon name="x" size={24} /></button>
-                                    </div>
-                                </div>
-                                <button onClick={saveToHistoryManually} disabled={materialResult.pieces === 0} className={`w-full py-3.5 rounded-2xl font-black text-lg flex items-center justify-center gap-2 shadow-xl btn-3d ${materialResult.pieces === 0 ? 'bg-zinc-800 text-zinc-600 border-none opacity-50 cursor-not-allowed' : 'btn-3d-orange text-white'}`}><Icon name="save" size={24} />履歴の保存</button>
-                            </section>
+                            <button onClick={saveToHistoryManually} disabled={materialResult.pieces === 0} className={`w-full py-3.5 rounded-2xl font-black text-lg flex items-center justify-center gap-2 shadow-xl btn-3d ${materialResult.pieces === 0 ? 'bg-zinc-800 text-zinc-600 border-none opacity-50 cursor-not-allowed' : 'btn-3d-orange text-white'}`}><Icon name="save" size={24} />履歴の保存</button>
 
                             <section className="grid grid-cols-2 gap-3">
                                 <div className="bg-zinc-900 py-2 px-4 rounded-2xl border-2 border-green-500 flex flex-col items-center shadow-lg"><span className="text-sm font-bold text-zinc-300 uppercase mb-0.5">本数</span><div className="flex items-baseline gap-1"><span className="text-3xl font-mono font-black text-green-500">{materialResult.pieces}</span><span className="text-sm font-bold text-zinc-400">本</span></div></div>
@@ -360,14 +369,29 @@
                                 <div className="flex items-center justify-between ml-1">
                                     <h3 className="text-sm font-bold text-zinc-300 uppercase">保存履歴</h3>
                                     <div className="flex items-center gap-2 shrink-0">
-                                        <button onClick={saveHistoryTotal} className="h-8 px-2.5 rounded-xl text-[10px] font-black flex items-center gap-1 btn-3d btn-3d-orange text-white whitespace-nowrap"><Icon name="save" size={14} />リストへ保存</button>
+                                        <button onClick={saveHistoryTotal} className="h-8 px-3 rounded-xl text-xs font-black flex items-center gap-1 btn-3d btn-3d-orange text-white whitespace-nowrap"><Icon name="save" size={14} />合計保存</button>
                                         <button onClick={() => setIsClearModalOpen(true)} className="h-8 w-10 flex items-center justify-center rounded-xl btn-3d btn-3d-zinc text-zinc-300 active:text-red-500"><Icon name="trash" size={16} /></button>
                                     </div>
                                 </div>
-                                <div className="bg-zinc-900 py-3 px-4 rounded-3xl border-2 border-zinc-600 shadow-md">
-                                    <div className="flex items-center justify-between min-w-0 gap-2">
-                                        <div className="flex items-baseline gap-2 shrink-0"><span className="text-zinc-300 text-base font-bold">合計:</span><span className="text-2xl font-mono font-black text-green-500">{history.reduce((a,c)=>a+(c.pieces||0),0)}</span><span className="text-base font-bold text-zinc-300">本</span></div>
-                                        <div className="text-base font-bold text-zinc-300 truncate">総距離: {format(history.reduce((a,c)=>a+toNum(c.total),0))} mm</div>
+                                <div className="bg-zinc-900 py-2 px-3 rounded-3xl border-2 border-zinc-600 shadow-md">
+                                    <div className="flex flex-col gap-0.5">
+                                        <div className="flex items-baseline justify-between px-1">
+                                            <span className="text-zinc-400 text-sm font-bold">距離:</span>
+                                            <span className="text-zinc-200 text-base font-bold">{format(history.reduce((a,c)=>a+toNum(c.total),0))} mm</span>
+                                        </div>
+                                        <div className="flex items-center justify-between px-1">
+                                            <div className="flex items-baseline gap-2">
+                                                <span className="text-zinc-400 text-sm font-bold">本数:</span>
+                                                <div className="flex items-baseline gap-1">
+                                                    <span className="text-2xl font-mono font-black text-green-500 leading-none">{history.reduce((a,c)=>a+(c.pieces||0),0)}</span>
+                                                    <span className="text-sm font-bold text-zinc-300">本</span>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-baseline gap-2">
+                                                <span className="text-zinc-400 text-sm font-bold">端材:</span>
+                                                <span className="text-blue-400 text-base font-mono font-bold">{format(history.reduce((a,c)=>a+toNum(c.remainder),0))} mm</span>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                                 <div className="space-y-1.5">
@@ -393,12 +417,27 @@
                                     {savedTallies.length === 0 ? <div className="text-center p-6 bg-zinc-900/20 border border-dashed border-zinc-800 rounded-2xl italic text-zinc-500 text-sm font-bold">履歴の合計を保存できます</div> : 
                                     savedTallies.map(t => (
                                         <div key={t.id} className="bg-zinc-900 rounded-2xl border-2 border-orange-500 flex items-stretch shadow-md animate-fade-in overflow-hidden">
-                                            <div className="flex-1 p-2.5 flex flex-col gap-1.5">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="flex items-baseline gap-1 text-green-500 font-black shrink-0"><span className="text-2xl font-mono leading-none">{t.pieces}</span><span className="text-sm font-bold text-zinc-300 uppercase">本</span></div>
-                                                    <div className="flex items-baseline gap-1 text-zinc-300 text-base font-bold border-l border-zinc-800 pl-4"><span>計:</span><span className="text-zinc-200">{format(t.totalDistance)} mm</span></div>
+                                            <div className="flex-1 py-2 px-3 flex flex-col gap-1.5">
+                                                <div className="flex flex-col gap-0.5">
+                                                    <div className="flex items-baseline justify-between px-1">
+                                                        <span className="text-zinc-400 text-sm font-bold">距離:</span>
+                                                        <span className="text-zinc-200 text-base font-bold">{format(t.totalDistance)} mm</span>
+                                                    </div>
+                                                    <div className="flex items-center justify-between px-1">
+                                                        <div className="flex items-baseline gap-2">
+                                                            <span className="text-zinc-400 text-sm font-bold">本数:</span>
+                                                            <div className="flex items-baseline gap-1">
+                                                                <span className="text-2xl font-mono font-black text-green-500 leading-none">{t.pieces}</span>
+                                                                <span className="text-sm font-bold text-zinc-300">本</span>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex items-baseline gap-2">
+                                                            <span className="text-zinc-400 text-sm font-bold">端材:</span>
+                                                            <span className="text-blue-400 text-base font-mono font-bold">{format(t.totalRemainder || 0)} mm</span>
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                                <input type="text" value={t.name} onFocus={handleFocus} onChange={(e) => updateTallyName(t.id, e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl py-1.5 px-3 text-base text-zinc-200 outline-none font-bold focus:border-orange-500 transition-colors shadow-inner" placeholder="品名を入力" />
+                                                <input type="text" value={t.name} onFocus={handleFocus} onChange={(e) => updateTallyName(t.id, e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl py-1.5 px-3 text-base text-zinc-200 outline-none font-bold focus:border-zinc-500 transition-colors shadow-inner" placeholder="品名を入力" />
                                             </div>
                                             <button onClick={() => deleteTallyItem(t.id)} className="w-12 shrink-0 bg-zinc-900/50 hover:bg-zinc-800 text-zinc-300 active:text-red-500 flex items-center justify-center border-l border-zinc-800"><Icon name="trash" size={18} /></button>
                                         </div>
