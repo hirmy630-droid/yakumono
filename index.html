@@ -17,6 +17,14 @@
         input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         input[type=number] { -moz-appearance: textfield; }
         
+        /* プレースホルダの文字サイズをラベル(text-sm)に合わせ、色をグレーに設定 */
+        input::placeholder { 
+            font-size: 0.875rem !important; 
+            font-weight: 400; 
+            color: #71717a !important; /* zinc-400相当のグレー */
+            opacity: 1; /* ブラウザ規定の透明度をリセット */
+        }
+        
         /* 立体ボタンの共通スタイル */
         .btn-3d { transition: all 0.1s; position: relative; top: 0; }
         .btn-3d:active { transform: translateY(2px); border-bottom-width: 0 !important; }
@@ -25,6 +33,8 @@
         .btn-3d-orange { background: #ea580c; border-bottom: 4px solid #9a3412; }
         .btn-3d-zinc { background: #3f3f46; border-bottom: 4px solid #18181b; }
         .btn-3d-red { background: #dc2626; border-bottom: 4px solid #7f1d1d; }
+        /* シルバーボタンの文字色をグレー(#71717a)に設定 */
+        .btn-3d-silver { background: #d4d4d8; border-bottom: 4px solid #71717a; color: #71717a; }
         .btn-3d-tab-active { background: #3f3f46; border-bottom: 3px solid #18181b; color: #f97316; }
         
         .animate-fade-in { animation: fadeIn 0.15s ease-out; }
@@ -46,7 +56,8 @@
                 rotate: <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8M3 3v5h5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />,
                 save: <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2zM17 21v-8H7v8M7 3v5h8" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />,
                 trash: <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />,
-                x: <path d="M18 6 6 18M6 6l12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                x: <path d="M18 6 6 18M6 6l12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />,
+                chevron: <path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             };
             return (
                 <svg width={size} height={size} viewBox="0 0 24 24" className={className} xmlns="http://www.w3.org/2000/svg">
@@ -67,6 +78,9 @@
             const [currentProductName, setCurrentProductName] = useState('');
             const [totalHistory, setTotalHistory] = useState([]); 
             const [isClearModalOpen, setIsClearModalOpen] = useState(false);
+
+            // プルダウン制御用
+            const [openDropdown, setOpenDropdown] = useState(null); // 'length' | 'overlap' | null
 
             // --- ローカルストレージからのデータ読み込み ---
             const [history, setHistory] = useState(() => {
@@ -171,7 +185,7 @@
                 if (history.length === 0) return;
                 const pieces = history.reduce((acc, cur) => acc + (cur.pieces || 0), 0);
                 const totalDistance = history.reduce((acc, cur) => acc + toNum(cur.total), 0);
-                const totalRemainder = history.reduce((acc, cur) => acc + toNum(cur.remainder), 0); // 端材の合計を追加
+                const totalRemainder = history.reduce((acc, cur) => acc + toNum(cur.remainder), 0); 
                 const newTallies = [{
                     id: Date.now().toString(),
                     name: currentProductName,
@@ -270,6 +284,13 @@
 
             const isValidSlope = (y !== '' || x !== '') && (c !== '' || a !== '' || b !== '');
 
+            // 画面のどこかを触ったらドロップダウンを閉じる
+            useEffect(() => {
+                const handleGlobalClick = () => setOpenDropdown(null);
+                window.addEventListener('click', handleGlobalClick);
+                return () => window.removeEventListener('click', handleGlobalClick);
+            }, []);
+
             return (
                 <div 
                     className="max-w-md mx-auto p-4 space-y-6"
@@ -292,7 +313,6 @@
 
                     <header className="flex flex-col gap-3 border-b border-zinc-700 pb-4">
                         <div className="flex items-center gap-3">
-                            {/* KYOWA ROOF オリジナルアイコン (CSS/HTMLで作成) */}
                             <div className="w-12 h-12 rounded-2xl shadow-xl border border-zinc-700 shrink-0 bg-gradient-to-br from-zinc-800 to-zinc-950 flex flex-col items-center justify-center relative overflow-hidden">
                                 <div className="absolute -right-2 -top-2 w-8 h-8 bg-blue-600 rounded-full blur-xl opacity-40"></div>
                                 <div className="absolute -left-2 -bottom-2 w-6 h-6 bg-orange-600 rounded-full blur-xl opacity-30"></div>
@@ -303,7 +323,7 @@
                             </div>
                             <div>
                                 <h1 className="text-xl font-bold text-white leading-none">役物材料 計算</h1>
-                                <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-tighter mt-1">KYOWA ROOF</p>
+                                <p className="text-[12px] text-zinc-500 font-bold uppercase tracking-tighter mt-1">KYOWA ROOF</p>
                             </div>
                         </div>
                         <nav className="flex bg-zinc-900 rounded-2xl p-1 shadow-inner">
@@ -320,30 +340,67 @@
                             </div>
 
                             <section className="grid grid-cols-2 gap-3">
-                                <div className="space-y-2 text-center">
+                                {/* 長さ（本） */}
+                                <div className="space-y-2 text-center relative">
                                     <label className="text-sm font-bold text-zinc-400">長さ（本）</label>
-                                    <input type="text" inputMode="decimal" value={format(stdLength)} onFocus={handleFocus} onChange={(e) => setStdLength(unformat(e.target.value))} className="w-full h-14 bg-zinc-900 border-2 border-zinc-600 rounded-2xl text-xl text-white text-center outline-none font-bold shadow-inner" placeholder="0" />
+                                    <div className="relative h-14">
+                                        <input type="text" inputMode="decimal" value={format(stdLength)} onFocus={handleFocus} onChange={(e) => setStdLength(unformat(e.target.value))} className="w-full h-full bg-zinc-900 border-2 border-zinc-600 rounded-2xl text-xl text-white text-center outline-none font-bold shadow-inner pr-10" placeholder="1本の長さ" />
+                                        <button 
+                                            onClick={(e) => { e.stopPropagation(); setOpenDropdown(openDropdown === 'length' ? null : 'length'); }} 
+                                            className={`absolute right-0 top-0 bottom-0 w-10 flex items-center justify-center text-zinc-500 transition-transform ${openDropdown === 'length' ? 'rotate-180 text-orange-500' : ''}`}
+                                        >
+                                            <Icon name="chevron" size={20} />
+                                        </button>
+                                    </div>
+                                    {openDropdown === 'length' && (
+                                        <div className="absolute top-full left-0 right-0 z-30 mt-1 bg-zinc-800 border border-zinc-700 rounded-xl shadow-2xl overflow-hidden animate-fade-in">
+                                            {[2000, 2500, 3000, 4000].map(val => (
+                                                <button key={val} onClick={() => { setStdLength(val.toString()); setOpenDropdown(null); }} className="w-full py-3 text-lg font-black text-zinc-100 hover:bg-zinc-700 active:bg-orange-600 border-b border-zinc-700/50 last:border-none">
+                                                    {val.toLocaleString()}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="space-y-2 text-center">
+
+                                {/* 重ね（mm） */}
+                                <div className="space-y-2 text-center relative">
                                     <label className="text-sm font-bold text-zinc-400">重ね（mm）</label>
-                                    <input type="text" inputMode="decimal" value={format(overlap)} onFocus={handleFocus} onChange={(e) => setOverlap(unformat(e.target.value))} className="w-full h-14 bg-zinc-900 border-2 border-zinc-600 rounded-2xl text-xl text-white text-center outline-none font-bold shadow-inner" placeholder="0" />
+                                    <div className="relative h-14">
+                                        <input type="text" inputMode="decimal" value={format(overlap)} onFocus={handleFocus} onChange={(e) => setOverlap(unformat(e.target.value))} className="w-full h-full bg-zinc-900 border-2 border-zinc-600 rounded-2xl text-xl text-white text-center outline-none font-bold shadow-inner pr-10" placeholder="重なり幅" />
+                                        <button 
+                                            onClick={(e) => { e.stopPropagation(); setOpenDropdown(openDropdown === 'overlap' ? null : 'overlap'); }} 
+                                            className={`absolute right-0 top-0 bottom-0 w-10 flex items-center justify-center text-zinc-500 transition-transform ${openDropdown === 'overlap' ? 'rotate-180 text-orange-500' : ''}`}
+                                        >
+                                            <Icon name="chevron" size={20} />
+                                        </button>
+                                    </div>
+                                    {openDropdown === 'overlap' && (
+                                        <div className="absolute top-full left-0 right-0 z-30 mt-1 bg-zinc-800 border border-zinc-700 rounded-xl shadow-2xl overflow-hidden animate-fade-in">
+                                            {[30, 50, 70, 100].map(val => (
+                                                <button key={val} onClick={() => { setOverlap(val.toString()); setOpenDropdown(null); }} className="w-full py-3 text-lg font-black text-zinc-100 hover:bg-zinc-700 active:bg-orange-600 border-b border-zinc-700/50 last:border-none">
+                                                    {val}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             </section>
 
                             <div className="space-y-2 text-center">
                                 <label className="text-sm font-bold text-zinc-400">距離（mm）</label>
                                 <div className="relative h-14 group">
-                                    <input type="text" inputMode="decimal" value={format(totalDim)} onFocus={handleFocus} onChange={(e) => setTotalDim(unformat(e.target.value))} className="w-full h-full bg-zinc-900 border-2 border-zinc-600 rounded-2xl text-2xl text-white text-center outline-none font-bold pr-14 shadow-inner focus:border-zinc-500 transition-all" placeholder="0" />
+                                    <input type="text" inputMode="decimal" value={format(totalDim)} onFocus={handleFocus} onChange={(e) => setTotalDim(unformat(e.target.value))} className="w-full h-full bg-zinc-900 border-2 border-zinc-600 rounded-2xl text-2xl text-white text-center outline-none font-bold pr-14 shadow-inner focus:border-zinc-500 transition-all" placeholder="取付け距離" />
                                     <button onClick={clearDistance} className="absolute right-1 top-1 bottom-1 w-12 flex items-center justify-center rounded-xl text-zinc-500 hover:text-zinc-300 active:scale-95 transition-all"><Icon name="x" size={24} /></button>
                                 </div>
                             </div>
 
                             <section className="bg-zinc-900 p-4 rounded-3xl border border-zinc-800 space-y-3 shadow-xl">
                                 <div className="space-y-2">
-                                    <label className="text-sm font-bold text-zinc-400 ml-1 uppercase">数値入力</label>
+                                    <label className="text-sm font-bold text-zinc-400 ml-1 uppercase">＋距離入力</label>
                                     <div className="flex gap-2 items-stretch h-14">
-                                        <input ref={calcInputRef} type="text" inputMode="decimal" value={format(calcInput)} onFocus={handleFocus} onChange={(e) => setCalcInput(unformat(e.target.value))} onKeyDown={(e) => e.key === 'Enter' && addValue()} className="flex-1 min-w-0 bg-zinc-950 border-2 border-orange-500 rounded-2xl text-xl text-white text-center focus:border-orange-400 outline-none shadow-inner font-bold transition-colors" placeholder="0" />
-                                        <button onClick={addValue} className="w-14 shrink-0 rounded-2xl text-white flex items-center justify-center shadow-lg btn-3d btn-3d-blue"><Icon name="plus" size={32} /></button>
+                                        <input ref={calcInputRef} type="text" inputMode="decimal" value={format(calcInput)} onFocus={handleFocus} onChange={(e) => setCalcInput(unformat(e.target.value))} onKeyDown={(e) => e.key === 'Enter' && addValue()} className="flex-1 min-w-0 bg-zinc-950 border-2 border-orange-500 rounded-2xl text-xl text-white text-center focus:border-orange-400 outline-none shadow-inner font-bold transition-colors" placeholder="加算する距離" />
+                                        <button onClick={addValue} className="w-14 shrink-0 rounded-2xl flex items-center justify-center shadow-lg btn-3d btn-3d-silver"><Icon name="plus" size={32} /></button>
                                     </div>
                                 </div>
                                 <div className="flex justify-between items-center px-1 pt-2 border-t border-zinc-800">
@@ -449,15 +506,31 @@
                         /* 勾配計算 */
                         <div className="space-y-6 animate-fade-in">
                             <section className="grid grid-cols-2 gap-3 text-center">
-                                <div className="space-y-2"><label className="text-sm font-bold text-zinc-400">勾配</label><input type="text" inputMode="decimal" value={y} onFocus={handleFocus} onChange={(e) => updateFromY(e.target.value)} className="w-full h-14 bg-zinc-900 border border-zinc-700 rounded-2xl text-xl text-white text-center outline-none font-bold shadow-inner" placeholder="0" /></div>
-                                <div className="space-y-2"><label className="text-sm font-bold text-zinc-400">角度</label><input type="text" inputMode="decimal" value={x} onFocus={handleFocus} onChange={(e) => updateFromX(e.target.value)} className="w-full h-14 bg-zinc-900 border border-zinc-700 rounded-2xl text-xl text-white text-center outline-none font-bold shadow-inner" placeholder="0" /></div>
+                                {/* 勾配（100→↕︎） - プルダウンを削除 */}
+                                <div className="space-y-2">
+                                    <label className="text-sm font-bold text-zinc-400">勾配（100→↕︎）</label>
+                                    <div className="relative h-14">
+                                        <input type="text" inputMode="decimal" value={y} onFocus={handleFocus} onChange={(e) => updateFromY(e.target.value)} className="w-full h-full bg-zinc-900 border border-zinc-700 rounded-2xl text-xl text-white text-center outline-none font-bold shadow-inner" placeholder="mm" />
+                                    </div>
+                                </div>
+                                <div className="space-y-2 text-center"><label className="text-sm font-bold text-zinc-400">角度</label><input type="text" inputMode="decimal" value={x} onFocus={handleFocus} onChange={(e) => updateFromX(e.target.value)} className="w-full h-14 bg-zinc-900 border border-zinc-700 rounded-2xl text-xl text-white text-center outline-none font-bold shadow-inner" placeholder="mm" /></div>
                             </section>
                             <div className="space-y-2 text-center w-full">
                                 <label className="text-sm font-bold text-zinc-400 tracking-widest font-bold">水平寸法</label>
-                                <div className="relative h-14"><input type="text" inputMode="decimal" value={format(c)} onFocus={handleFocus} onChange={(e) => updateFromC(e.target.value)} className="w-full h-full bg-zinc-900 border-2 border-orange-500 rounded-2xl text-xl text-white text-center outline-none font-bold shadow-inner" placeholder="0" /><span className="absolute right-4 top-1/2 -translate-y-1/2 text-orange-400 font-black text-base">mm</span></div>
+                                <div className="relative h-14"><input type="text" inputMode="decimal" value={format(c)} onFocus={handleFocus} onChange={(e) => updateFromC(e.target.value)} className="w-full h-full bg-zinc-900 border-2 border-orange-500 rounded-2xl text-xl text-white text-center outline-none font-bold shadow-inner" placeholder="mm" /><span className="absolute right-4 top-1/2 -translate-y-1/2 text-orange-400 font-black text-base">mm</span></div>
                             </div>
                             <div className="bg-zinc-900 rounded-3xl p-5 border border-zinc-700 shadow-2xl overflow-hidden">
-                                <div className="flex items-center gap-2 mb-4 font-bold text-zinc-200 uppercase tracking-widest"><div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>勾配プレビュー</div>
+                                <div className="flex items-center justify-between mb-4">
+                                    <div className="flex items-center gap-2 font-bold text-zinc-200 uppercase tracking-widest">
+                                        <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
+                                        勾配プレビュー
+                                    </div>
+                                    <svg width="85" height="50" viewBox="0 0 85 50" className="text-[#d4d4d8]">
+                                        <path d="M 10 35 L 55 35 L 55 15 Z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+                                        <text x="32" y="47" fontSize="10" textAnchor="middle" fill="currentColor" fontWeight="900">100</text>
+                                        <text x="58" y="28" fontSize="10" textAnchor="start" fill="currentColor" fontWeight="900">勾配</text>
+                                    </svg>
+                                </div>
                                 <div className="flex justify-center h-52 bg-zinc-950/30 rounded-2xl border border-zinc-800/50">
                                     <svg viewBox="0 0 320 200" className="w-full h-full p-2 overflow-visible">
                                         <path d="M 40 160 L 260 160" stroke="#f97316" strokeWidth="4" strokeLinecap="round" fill="none" />
@@ -474,8 +547,8 @@
                                 </div>
                             </div>
                             <section className="grid grid-cols-2 gap-3 pb-4 text-center w-full">
-                                <div className="bg-zinc-900 p-4 rounded-3xl border-2 border-green-500 flex flex-col items-center min-w-0 shadow-lg"><span className="text-sm font-bold text-zinc-100 uppercase mb-3">高さ</span><input type="text" inputMode="decimal" value={format(a)} onFocus={handleFocus} onChange={(e) => updateFromA(e.target.value)} className="w-full bg-zinc-950 border border-green-900 rounded-xl py-3 px-1 text-2xl font-mono font-black text-green-500 text-center outline-none shadow-inner" placeholder="0" /><p className="text-[10px] text-zinc-500 mt-3 font-bold leading-tight uppercase">水平寸法は固定</p></div>
-                                <div className="bg-zinc-900 p-4 rounded-3xl border-2 border-blue-500 flex flex-col items-center min-w-0 shadow-lg"><span className="text-sm font-bold text-zinc-100 uppercase mb-3">斜辺</span><input type="text" inputMode="decimal" value={format(b)} onFocus={handleFocus} onChange={(e) => updateFromB(e.target.value)} className="w-full bg-zinc-950 border border-blue-900 rounded-xl py-3 px-1 text-2xl font-mono font-black text-blue-500 text-center outline-none shadow-inner" placeholder="0" /><p className="text-[10px] text-zinc-500 mt-3 font-bold leading-tight uppercase">高さは固定</p></div>
+                                <div className="bg-zinc-900 p-4 rounded-3xl border-2 border-green-500 flex flex-col items-center min-w-0 shadow-lg"><span className="text-sm font-bold text-zinc-100 uppercase mb-3">勾配幅</span><input type="text" inputMode="decimal" value={format(a)} onFocus={handleFocus} onChange={(e) => updateFromA(e.target.value)} className="w-full bg-zinc-950 border border-green-900 rounded-xl py-3 px-1 text-2xl font-mono font-black text-green-500 text-center outline-none shadow-inner" placeholder="mm" /><p className="text-[10px] text-zinc-500 mt-3 font-bold leading-tight uppercase">水平寸法は固定</p></div>
+                                <div className="bg-zinc-900 p-4 rounded-3xl border-2 border-blue-500 flex flex-col items-center min-w-0 shadow-lg"><span className="text-sm font-bold text-zinc-100 uppercase mb-3">斜辺</span><input type="text" inputMode="decimal" value={format(b)} onFocus={handleFocus} onChange={(e) => updateFromB(e.target.value)} className="w-full bg-zinc-950 border border-blue-900 rounded-xl py-3 px-1 text-2xl font-mono font-black text-blue-500 text-center outline-none shadow-inner" placeholder="mm" /><p className="text-[10px] text-zinc-500 mt-3 font-bold leading-tight uppercase">勾配幅は固定</p></div>
                             </section>
                         </div>
                     )}
