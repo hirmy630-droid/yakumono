@@ -17,6 +17,7 @@
         input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         input[type=number] { -moz-appearance: textfield; }
         
+        /* プレースホルダーを14pxに変更 */
         input::placeholder { 
             font-size: 14px !important; 
             font-weight: 400; 
@@ -25,15 +26,37 @@
         }
         
         .btn-3d { transition: all 0.1s; position: relative; top: 0; }
-        .btn-3d:active { transform: translateY(2px); border-bottom-width: 0 !important; }
+        .btn-3d:active { transform: translateY(2px); }
         
-        .btn-3d-blue { background: #2563eb; border-bottom: 4px solid #1e3a8a; }
-        .btn-3d-orange { background: linear-gradient(180deg, #ff9500 0%, #e67600 100%); border: 1px solid #b35c00; box-shadow: 0 4px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.2); }
+        /* 立体的なオレンジボタン (保存用・集計保存用) */
+        .btn-3d-orange-ios {
+            background: linear-gradient(180deg, #ff9500 0%, #e67600 100%);
+            border: 1px solid #b35c00;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.2);
+            transition: all 0.05s ease;
+            position: relative;
+            z-index: 1;
+        }
+        .btn-3d-orange-ios:active:not(.opacity-50) {
+            transform: translateY(2px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2), inset 0 1px 4px rgba(0,0,0,0.3);
+        }
+
+        /* 立体的なシルバーボタン (エンター用) */
+        .btn-3d-silver-ios {
+            background: linear-gradient(180deg, #e5e5ea 0%, #c7c7cc 100%);
+            border: 1px solid #8e8e93;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.5);
+            transition: all 0.05s ease;
+            position: relative;
+            z-index: 1;
+        }
+        .btn-3d-silver-ios:active {
+            transform: translateY(2px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2), inset 0 1px 4px rgba(0,0,0,0.3);
+        }
+
         .btn-3d-zinc { background: #3f3f46; border-bottom: 4px solid #18181b; }
-        .btn-3d-red { background: #dc2626; border-bottom: 4px solid #7f1d1d; }
-        .btn-3d-gray { background: linear-gradient(180deg, #8e8e93 0%, #636366 100%); border: 1px solid #48484a; box-shadow: 0 4px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.2); }
-        
-        /* 選択タブの色を少し明るいグレーに変更 */
         .btn-3d-tab-active { background: #52525b; border-bottom: 3px solid #18181b; color: #f97316; }
         
         .animate-fade-in { animation: fadeIn 0.15s ease-out; }
@@ -78,13 +101,13 @@
 
             const [history, setHistory] = useState(() => {
                 try {
-                    const saved = localStorage.getItem('gradient_calc_history');
+                    const saved = localStorage.getItem('gradient_calc_history_v4');
                     return saved ? JSON.parse(saved) : [];
                 } catch(e) { return []; }
             });
             const [savedTallies, setSavedTallies] = useState(() => {
                 try {
-                    const saved = localStorage.getItem('gradient_calc_savedTallies');
+                    const saved = localStorage.getItem('gradient_calc_savedTallies_v4');
                     return saved ? JSON.parse(saved) : [];
                 } catch(e) { return []; }
             });
@@ -96,7 +119,6 @@
             const [b, setB] = useState('');
 
             const addInputRef = useRef(null);
-            const productNameRef = useRef(null);
             const [isClearModalOpen, setIsClearModalOpen] = useState(false);
             const [openDropdown, setOpenDropdown] = useState(null);
 
@@ -112,7 +134,10 @@
             };
             const unformat = (val) => val.toString().replace(/,/g, '');
             const toNum = (val) => parseFloat(unformat(val)) || 0;
-            const handleFocus = (e) => e.target.select();
+            
+            const handleFocus = (e) => {
+                setTimeout(() => e.target.select(), 10);
+            };
 
             const executeAddition = () => {
                 const current = toNum(totalDim);
@@ -127,10 +152,20 @@
             const clearAllFields = () => {
                 setTotalDim('');
                 setAddInput('');
-                setStdLength('');
-                setOverlap('');
                 setIsNewEntry(true);
             };
+
+            const materialResult = useMemo(() => {
+                const total = toNum(totalDim);
+                const std = toNum(stdLength);
+                const over = toNum(overlap);
+                const effective = std - over;
+                if (total > 0 && effective > 0) {
+                    const pieces = Math.ceil(total / effective);
+                    return { pieces, remainder: (pieces * effective) - total };
+                }
+                return { pieces: 0, remainder: 0 };
+            }, [totalDim, stdLength, overlap]);
 
             const saveToHistoryManually = () => {
                 if (materialResult.pieces === 0 || stdLength === '') return;
@@ -153,13 +188,16 @@
                 }
                 
                 setHistory(newHistory);
-                localStorage.setItem('gradient_calc_history', JSON.stringify(newHistory));
+                localStorage.setItem('gradient_calc_history_v4', JSON.stringify(newHistory));
             };
 
             const handleKeypad = (key) => {
                 if (key === 'AC') {
                     if (activeTab === 'material') {
                         clearAllFields();
+                        setStdLength('');
+                        setOverlap('');
+                        setCurrentProductName('');
                     } else {
                         setY(''); setX(''); setC(''); setA(''); setB('');
                     }
@@ -168,24 +206,50 @@
                 }
 
                 if (key === 'C') {
-                    if (activeTab === 'material') {
-                        if (activeField === 'name') setCurrentProductName('');
-                        else if (activeField === 'stdLength') setStdLength('');
-                        else if (activeField === 'overlap') setOverlap('');
-                        else if (activeField === 'totalDim') setTotalDim('');
-                        else if (activeField === 'addInput') setAddInput('');
-                    } else {
-                        if (activeField === 'y') updateFromY('');
-                        else if (activeField === 'x') updateFromX('');
-                        else if (activeField === 'c') updateFromC('');
-                        else if (activeField === 'a') updateFromA('');
-                        else if (activeField === 'b') updateFromB('');
+                    const setter = {
+                        name: setCurrentProductName,
+                        stdLength: setStdLength,
+                        overlap: setOverlap,
+                        totalDim: setTotalDim,
+                        addInput: setAddInput,
+                        y: setY,
+                        x: setX,
+                        c: setC
+                    }[activeField];
+                    if (setter) {
+                        setter('');
                     }
                     setIsNewEntry(true);
                     return;
                 }
 
-                if (key === '保存' && activeTab === 'material') {
+                if (key === '+/-') {
+                    if (activeField === 'name') return;
+                    const setter = {
+                        stdLength: setStdLength,
+                        overlap: setOverlap,
+                        totalDim: setTotalDim,
+                        addInput: setAddInput,
+                        y: updateFromY,
+                        x: updateFromX,
+                        c: updateFromC
+                    }[activeField];
+                    if (setter) {
+                        if (['y', 'x', 'c'].includes(activeField)) {
+                           const currentVal = activeField === 'y' ? y : activeField === 'x' ? x : c;
+                           const n = parseFloat(currentVal);
+                           if (!isNaN(n)) setter((n * -1).toString());
+                        } else {
+                           setter(prev => {
+                               const n = toNum(prev);
+                               return n === 0 ? prev : (n * -1).toString();
+                           });
+                        }
+                    }
+                    return;
+                }
+
+                if (key === '保存') {
                     saveToHistoryManually();
                     return;
                 }
@@ -210,63 +274,32 @@
                     return;
                 }
 
-                if (activeTab === 'material') {
-                    const setter = {
-                        name: setCurrentProductName,
-                        stdLength: setStdLength,
-                        overlap: setOverlap,
-                        totalDim: setTotalDim,
-                        addInput: setAddInput
-                    }[activeField];
+                const setter = {
+                    name: setCurrentProductName,
+                    stdLength: setStdLength,
+                    overlap: setOverlap,
+                    totalDim: setTotalDim,
+                    addInput: setAddInput
+                }[activeField];
 
-                    if (setter) {
-                        setter(prev => {
-                            const s = prev.toString();
-                            if ((key === '00' || key === '000') && (isNewEntry || s === '')) return '';
-                            const nextVal = isNewEntry ? key.toString() : s + key;
-                            setIsNewEntry(false);
-                            return nextVal;
-                        });
-                    }
-                } else {
-                    let currentStr = '';
-                    if (activeField === 'y') currentStr = y;
-                    else if (activeField === 'x') currentStr = x;
-                    else if (activeField === 'c') currentStr = c;
-                    else if (activeField === 'a') currentStr = a;
-                    else if (activeField === 'b') currentStr = b;
-
-                    currentStr = currentStr.toString();
-                    if ((key === '00' || key === '000') && (isNewEntry || currentStr === '')) return;
+                if (setter && activeTab === 'material') {
+                    setter(prev => {
+                        const s = prev.toString();
+                        if (key === '00' && (isNewEntry || s === '')) return '';
+                        const nextVal = isNewEntry ? key.toString() : s + key;
+                        setIsNewEntry(false);
+                        return nextVal;
+                    });
+                } else if (activeTab === 'slope') {
+                    let currentStr = (activeField === 'y' ? y : activeField === 'x' ? x : c).toString();
+                    if (key === '00' && (isNewEntry || currentStr === '')) return;
                     if (key === '.' && !isNewEntry && currentStr.includes('.')) return;
-
                     let nextStr = isNewEntry ? (key === '.' ? '0.' : key.toString()) : currentStr + key;
                     setIsNewEntry(false);
-
                     if (activeField === 'y') updateFromY(nextStr);
                     if (activeField === 'x') updateFromX(nextStr);
                     if (activeField === 'c') updateFromC(nextStr);
-                    if (activeField === 'a') updateFromA(nextStr);
-                    if (activeField === 'b') updateFromB(nextStr);
                 }
-            };
-
-            const materialResult = useMemo(() => {
-                const total = toNum(totalDim);
-                const std = toNum(stdLength);
-                const over = toNum(overlap);
-                const effective = std - over;
-                if (total > 0 && effective > 0) {
-                    const pieces = Math.ceil(total / effective);
-                    return { pieces, remainder: (pieces * effective) - total };
-                }
-                return { pieces: 0, remainder: 0 };
-            }, [totalDim, stdLength, overlap]);
-
-            const deleteHistoryItem = (id) => {
-                const newHistory = history.filter(item => item.id !== id);
-                setHistory(newHistory);
-                localStorage.setItem('gradient_calc_history', JSON.stringify(newHistory));
             };
 
             const saveHistoryTotal = () => {
@@ -283,26 +316,14 @@
                     createdAt: Date.now()
                 }, ...savedTallies];
                 setSavedTallies(newTallies);
-                localStorage.setItem('gradient_calc_savedTallies', JSON.stringify(newTallies));
+                localStorage.setItem('gradient_calc_savedTallies_v4', JSON.stringify(newTallies));
                 setIsPendingClear(true);
                 setCurrentProductName('');
             };
 
-            const deleteTallyItem = (id) => {
-                const newTallies = savedTallies.filter(t => t.id !== id);
-                setSavedTallies(newTallies);
-                localStorage.setItem('gradient_calc_savedTallies', JSON.stringify(newTallies));
-            };
-
-            const updateTallyName = (id, name) => {
-                const newTallies = savedTallies.map(t => t.id === id ? { ...t, name } : t);
-                setSavedTallies(newTallies);
-                localStorage.setItem('gradient_calc_savedTallies', JSON.stringify(newTallies));
-            };
-
             const confirmClearHistory = () => {
                 setHistory([]);
-                localStorage.removeItem('gradient_calc_history');
+                localStorage.removeItem('gradient_calc_history_v4');
                 setIsClearModalOpen(false);
                 setIsPendingClear(false);
             };
@@ -315,7 +336,7 @@
                         setA(Math.round((n / 100) * toNum(c)).toString());
                         setB(Math.round(Math.sqrt(Math.pow((n / 100) * toNum(c), 2) + Math.pow(toNum(c), 2))).toString());
                     }
-                } else setX('');
+                } else { setX(''); setA(''); setB(''); }
             };
             const updateFromX = (v) => {
                 const cl = unformat(v); setX(cl); const n = parseFloat(cl);
@@ -326,7 +347,7 @@
                         setA(Math.round((g / 100) * toNum(c)).toString());
                         setB(Math.round(Math.sqrt(Math.pow((g / 100) * toNum(c), 2) + Math.pow(toNum(c), 2))).toString());
                     }
-                } else setY('');
+                } else { setY(''); setA(''); setB(''); }
             };
             const updateFromC = (v) => {
                 const cl = unformat(v); setC(cl); const nC = parseFloat(cl); const nY = toNum(y);
@@ -354,7 +375,6 @@
                 }
             };
 
-            // プレビュー表示の有効判定用変数の復元
             const isValidSlope = (y !== '' || x !== '') && (c !== '' || a !== '' || b !== '');
 
             useEffect(() => {
@@ -378,85 +398,54 @@
                         </div>
                     )}
 
-                    <header className="flex flex-col gap-2 border-b border-zinc-700 pb-2">
+                    <header className="flex flex-col gap-2 border-b border-zinc-700 pb-2 text-left">
                         <div className="flex items-baseline justify-between px-1">
                             <h1 className="text-[17px] font-bold text-white leading-none">役物材料 計算</h1>
                             <p className="text-[14px] text-zinc-500 font-bold uppercase tracking-tighter">KYOWA ROOF</p>
                         </div>
                         <nav className="flex bg-zinc-900 rounded-2xl p-1 shadow-inner">
-                            <button onClick={() => { setActiveTab('material'); setActiveField('totalDim'); }} className={`flex-1 py-1 rounded-xl text-[14px] font-black transition-all btn-3d ${activeTab === 'material' ? 'btn-3d-tab-active shadow-lg' : 'text-zinc-500'}`}>材料</button>
-                            <button onClick={() => { setActiveTab('slope'); setActiveField('c'); }} className={`flex-1 py-1 rounded-xl text-[14px] font-black transition-all btn-3d ${activeTab === 'slope' ? 'btn-3d-tab-active shadow-lg' : 'text-zinc-500'}`}>勾配</button>
+                            <button onClick={() => setActiveTab('material')} className={`flex-1 py-1 rounded-xl text-[14px] font-black transition-all btn-3d ${activeTab === 'material' ? 'btn-3d-tab-active shadow-lg' : 'text-zinc-500'}`}>材料</button>
+                            <button onClick={() => setActiveTab('slope')} className={`flex-1 py-1 rounded-xl text-[14px] font-black transition-all btn-3d ${activeTab === 'slope' ? 'btn-3d-tab-active shadow-lg' : 'text-zinc-500'}`}>勾配</button>
                         </nav>
                     </header>
 
                     {activeTab === 'material' ? (
                         <div className="flex flex-col gap-3 animate-fade-in">
                             <div className="bg-zinc-900 rounded-2xl overflow-hidden border border-zinc-700 shadow-xl">
-                                <div 
-                                    className={`relative px-3 h-12 border-b border-zinc-700 flex flex-col justify-center transition-all ${activeField === 'name' ? 'bg-zinc-800 ring-2 ring-inset ring-orange-500 z-10' : ''}`}
-                                    onClick={() => setActiveField('name')}
-                                >
-                                    <span className="text-[14px] font-bold text-zinc-400 absolute top-1 left-3">品名</span>
-                                    <input 
-                                        ref={productNameRef}
-                                        type="text" 
-                                        value={currentProductName} 
-                                        onChange={(e) => setCurrentProductName(e.target.value)}
-                                        onFocus={() => setActiveField('name')}
-                                        className="w-full h-full bg-transparent text-right text-[18px] text-zinc-200 font-bold outline-none pt-4 pr-1" 
-                                        placeholder="未入力" 
-                                    />
+                                {/* 品名 */}
+                                <div className={`relative px-3 h-12 border-b border-zinc-700 flex flex-col justify-center transition-all ${activeField === 'name' ? 'bg-zinc-800 ring-2 ring-inset ring-orange-500 z-10' : ''}`} onClick={() => setActiveField('name')}>
+                                    <span className="text-[14px] font-bold text-[#c0c0c0] absolute top-1 left-3 uppercase">品名</span>
+                                    <input type="text" value={currentProductName} onChange={(e) => setCurrentProductName(e.target.value)} onFocus={handleFocus} className="w-full h-full bg-transparent text-center text-[18px] text-zinc-200 font-bold outline-none pt-4" placeholder="名前を入力" />
                                 </div>
 
+                                {/* 長さ・重ね */}
                                 <div className="flex border-b border-zinc-700">
-                                    <div 
-                                        className={`relative flex-1 px-3 h-12 border-r border-zinc-700 flex flex-col justify-center transition-all ${activeField === 'stdLength' ? 'bg-zinc-800 ring-2 ring-inset ring-orange-500 z-10' : ''}`}
-                                        onClick={() => setActiveField('stdLength')}
-                                    >
+                                    <div className={`relative flex-1 px-3 h-12 border-r border-zinc-700 flex flex-col justify-center transition-all ${activeField === 'stdLength' ? 'bg-zinc-800 ring-2 ring-inset ring-orange-500 z-10' : ''}`} onClick={() => setActiveField('stdLength')}>
                                         <span className="text-[14px] font-bold text-zinc-400 absolute top-1 left-3">長さ</span>
-                                        <input 
-                                            type="text" 
-                                            inputMode="none"
-                                            value={format(stdLength)} 
-                                            onChange={(e) => setStdLength(unformat(e.target.value))}
-                                            onFocus={(e) => { handleFocus(e); setActiveField('stdLength'); }}
-                                            className="w-full h-full bg-transparent text-right text-[20px] text-white font-bold outline-none font-mono pt-4 pr-7" 
-                                            placeholder="0" 
-                                        />
+                                        <input type="text" inputMode="none" value={format(stdLength)} onFocus={handleFocus} className="w-full h-full bg-transparent text-center text-[20px] text-white font-bold outline-none font-mono pt-4 pr-7" placeholder="材料の長さ" />
                                         <button onClick={(e) => { e.stopPropagation(); setOpenDropdown(openDropdown === 'length' ? null : 'length'); }} className={`absolute right-1 top-0 bottom-0 w-8 flex items-center justify-center text-zinc-500 ${openDropdown === 'length' ? 'rotate-180 text-orange-500' : ''}`}>
                                             <Icon name="chevron" size={20} />
                                         </button>
                                         {openDropdown === 'length' && (
                                             <div className="absolute top-full left-0 right-0 z-30 mt-1 bg-zinc-800 border border-zinc-700 rounded-xl shadow-2xl overflow-hidden animate-fade-in">
                                                 {[2000, 2500, 3000, 4000].map(val => (
-                                                    <button key={val} onClick={(e) => { e.stopPropagation(); setStdLength(val.toString()); setOpenDropdown(null); }} className="w-full py-2 text-[14px] font-black text-zinc-100 hover:bg-zinc-700 border-b border-zinc-700/50 last:border-none">
+                                                    <button key={val} onClick={() => { setStdLength(val.toString()); setOpenDropdown(null); }} className="w-full py-2.5 text-lg font-black text-zinc-100 hover:bg-zinc-700 border-b border-zinc-700/50 last:border-none">
                                                         {val.toLocaleString()}
                                                     </button>
                                                 ))}
                                             </div>
                                         )}
                                     </div>
-                                    <div 
-                                        className={`relative flex-1 px-3 h-12 flex flex-col justify-center transition-all ${activeField === 'overlap' ? 'bg-zinc-800 ring-2 ring-inset ring-orange-500 z-10' : ''}`}
-                                        onClick={() => setActiveField('overlap')}
-                                    >
+                                    <div className={`relative flex-1 px-3 h-12 flex flex-col justify-center transition-all ${activeField === 'overlap' ? 'bg-zinc-800 ring-2 ring-inset ring-orange-500 z-10' : ''}`} onClick={() => setActiveField('overlap')}>
                                         <span className="text-[14px] font-bold text-zinc-400 absolute top-1 left-3">重ね</span>
-                                        <input 
-                                            type="text" 
-                                            inputMode="none"
-                                            value={format(overlap)} 
-                                            onChange={(e) => setOverlap(unformat(e.target.value))}
-                                            onFocus={(e) => { handleFocus(e); setActiveField('overlap'); }}
-                                            className="w-full h-full bg-transparent text-right text-[20px] text-white font-bold outline-none font-mono pt-4 pr-7" 
-                                            placeholder="0" 
-                                        />
+                                        <input type="text" inputMode="none" value={format(overlap)} onFocus={handleFocus} className="w-full h-full bg-transparent text-center text-[20px] text-white font-bold outline-none font-mono pt-4 pr-7" placeholder="ジョイント" />
                                         <button onClick={(e) => { e.stopPropagation(); setOpenDropdown(openDropdown === 'overlap' ? null : 'overlap'); }} className={`absolute right-1 top-0 bottom-0 w-8 flex items-center justify-center text-zinc-500 ${openDropdown === 'overlap' ? 'rotate-180 text-orange-500' : ''}`}>
                                             <Icon name="chevron" size={20} />
                                         </button>
                                         {openDropdown === 'overlap' && (
                                             <div className="absolute top-full left-0 right-0 z-30 mt-1 bg-zinc-800 border border-zinc-700 rounded-xl shadow-2xl overflow-hidden animate-fade-in">
                                                 {[30, 50, 70, 100].map(val => (
-                                                    <button key={val} onClick={(e) => { e.stopPropagation(); setOverlap(val.toString()); setOpenDropdown(null); }} className="w-full py-2 text-[14px] font-black text-zinc-100 hover:bg-zinc-700 border-b border-zinc-700/50 last:border-none">
+                                                    <button key={val} onClick={() => { setOverlap(val.toString()); setOpenDropdown(null); }} className="w-full py-2.5 text-lg font-black text-zinc-100 hover:bg-zinc-700 border-b border-zinc-700/50 last:border-none">
                                                         {val}
                                                     </button>
                                                 ))}
@@ -465,55 +454,35 @@
                                     </div>
                                 </div>
 
-                                <div 
-                                    className={`relative px-3 h-[3.5rem] border-b border-zinc-700 flex flex-col justify-center transition-all ${activeField === 'totalDim' ? 'bg-zinc-800 ring-2 ring-inset ring-orange-500 z-10' : ''}`}
-                                    onClick={() => setActiveField('totalDim')}
-                                >
-                                    <span className="text-[14px] font-bold text-zinc-400 absolute top-1 left-3">全幅 (W)</span>
-                                    <input 
-                                        type="text" 
-                                        inputMode="none"
-                                        value={format(totalDim)} 
-                                        onChange={(e) => setTotalDim(unformat(e.target.value))}
-                                        onFocus={(e) => { handleFocus(e); setActiveField('totalDim'); }}
-                                        className="w-full h-full bg-transparent text-right text-[26px] text-white font-black outline-none font-mono pt-5 pr-1" 
-                                        placeholder="0" 
-                                    />
+                                {/* 全幅 (W) */}
+                                <div className={`relative px-3 h-[3.5rem] border-b border-zinc-700 flex flex-col justify-center transition-all ${activeField === 'totalDim' ? 'bg-zinc-800 ring-2 ring-inset ring-orange-500 z-10' : ''}`} onClick={() => setActiveField('totalDim')}>
+                                    <span className="text-[14px] font-bold text-[#c0c0c0] absolute top-1 left-3 uppercase">全幅 (W)</span>
+                                    <input type="text" inputMode="none" value={format(totalDim)} onFocus={handleFocus} className="w-full h-full bg-transparent text-center text-[26px] text-white font-black outline-none font-mono pt-5" placeholder="取り付け全長" />
                                 </div>
 
-                                <div 
-                                    className={`relative px-3 h-[3.2rem] flex flex-col justify-center transition-all ${activeField === 'addInput' ? 'bg-zinc-800 ring-2 ring-inset ring-orange-500 z-10' : ''}`}
-                                    onClick={() => setActiveField('addInput')}
-                                >
-                                    <span className="text-[14px] font-bold text-zinc-400 absolute top-1 left-3">+加算</span>
-                                    <input 
-                                        ref={addInputRef}
-                                        type="text" 
-                                        inputMode="none"
-                                        value={format(addInput)} 
-                                        onChange={(e) => setAddInput(unformat(e.target.value))}
-                                        onKeyDown={(e) => e.key === 'Enter' && executeAddition()}
-                                        onFocus={(e) => { handleFocus(e); setActiveField('addInput'); }}
-                                        className="w-full h-full bg-transparent text-right text-[22px] text-[#c0c0c0] font-bold outline-none font-mono pt-5 pr-1" 
-                                        placeholder="0" 
-                                    />
+                                {/* +加算 & エンター */}
+                                <div className="flex border-b border-zinc-700">
+                                    <div className={`relative flex-1 px-3 h-[3.2rem] flex flex-col justify-center transition-all ${activeField === 'addInput' ? 'bg-zinc-800 ring-2 ring-inset ring-orange-500 z-10' : ''}`} onClick={() => setActiveField('addInput')}>
+                                        <span className="text-[14px] font-bold text-[#c0c0c0] absolute top-1 left-3 uppercase">+加算</span>
+                                        <input ref={addInputRef} type="text" inputMode="none" value={format(addInput)} onFocus={handleFocus} className="w-full h-full bg-transparent text-center text-[22px] text-[#c0c0c0] font-bold outline-none font-mono pt-5" placeholder="0" />
+                                    </div>
+                                    <button onClick={() => handleKeypad('⏎')} className="w-[25%] flex items-center justify-center text-[21px] font-bold border-l border-zinc-700 btn-3d-silver-ios text-zinc-800 h-[3.2rem]">
+                                        {activeField === 'addInput' ? <span className="text-[18px]">加算</span> : <Icon name="enter" size={24} />}
+                                    </button>
                                 </div>
 
-                                <div className="grid grid-cols-4 bg-[#27272a] border-t border-zinc-700">
-                                    {[7, 8, 9, 'C', 4, 5, 6, 'AC', 1, 2, 3, '⏎', 0, '00', '保存'].map((key, i) => {
-                                        const isDigit = typeof key === 'number' || key === '00';
-                                        const isEnter = key === '⏎';
-                                        const isOrange = isEnter || key === '保存';
-                                        const isGray = key === 'C' || key === 'AC';
-                                        const bgClass = isOrange ? 'bg-[#ea580c] text-white' : isGray ? 'bg-[#3f3f46] text-white' : 'bg-[#18181b] text-white';
-                                        const disabledClass = (key === '保存' && (materialResult.pieces === 0 || stdLength === '')) ? 'opacity-50' : '';
+                                {/* テンキー */}
+                                <div className="grid grid-cols-4 bg-[#27272a]">
+                                    {[7, 8, 9, 'C', 4, 5, 6, 'AC', 1, 2, 3, '保存', 0, '00', '+/-'].map((key, i) => {
+                                        const isFunction = key === 'C' || key === 'AC';
+                                        const isSave = key === '保存';
+                                        const isSaveDisabled = isSave && (materialResult.pieces === 0 || stdLength === '');
+                                        let bgClass = 'bg-[#18181b]';
+                                        if (isFunction) bgClass = 'bg-[#3f3f46]';
+                                        if (isSave) bgClass = 'btn-3d-orange-ios';
                                         return (
-                                            <button
-                                                key={i}
-                                                onClick={(e) => { e.preventDefault(); handleKeypad(key); }}
-                                                className={`flex items-center justify-center text-[21px] font-bold h-[3.2rem] border-r border-b border-[#27272a] active:opacity-60 ${bgClass} ${isEnter ? 'row-span-2 h-auto' : ''} ${disabledClass}`}
-                                            >
-                                                {isEnter ? <Icon name="enter" size={24} /> : key === '保存' ? <span className="text-[16px]">保存</span> : key}
+                                            <button key={i} onClick={(e) => { e.preventDefault(); handleKeypad(key); }} className={`flex items-center justify-center text-[21px] font-bold h-[3.2rem] border-r border-b border-zinc-700 active:opacity-60 text-white ${bgClass} ${isSave ? 'row-span-2 h-auto ' + (isSaveDisabled ? 'opacity-50' : '') : ''}`}>
+                                                {isSave ? <span className="text-[16px]">保存</span> : key}
                                             </button>
                                         );
                                     })}
@@ -521,67 +490,60 @@
                             </div>
 
                             <section className="grid grid-cols-2 gap-2 mt-1">
-                                <div 
-                                    className={`bg-zinc-900 py-2 px-3 rounded-2xl border-2 flex flex-col items-start shadow-lg transition-all ${activeField === 'resPieces' ? 'border-orange-500 shadow-[0_0_15px_rgba(249,115,22,0.3)]' : 'border-green-500'}`}
-                                    onClick={() => setActiveField('resPieces')}
-                                >
+                                <div className="bg-zinc-900 py-2 px-3 rounded-2xl border-2 border-green-500 flex flex-col items-start shadow-lg">
                                     <span className="text-[14px] font-bold text-zinc-300 uppercase block text-left">本数</span>
                                     <div className="flex items-baseline gap-1 mt-1">
-                                        <span className={`text-[28px] font-mono font-black ${activeField === 'resPieces' ? 'text-orange-500' : 'text-green-500'}`}>{materialResult.pieces}</span>
+                                        <span className="text-[28px] font-mono font-black text-green-500">{materialResult.pieces}</span>
                                         <span className="text-[14px] font-bold text-zinc-400">本</span>
                                     </div>
                                 </div>
-                                <div 
-                                    className={`bg-zinc-900 py-2 px-3 rounded-2xl border-2 flex flex-col items-start shadow-lg transition-all ${activeField === 'resRem' ? 'border-orange-500 shadow-[0_0_15px_rgba(249,115,22,0.3)]' : 'border-blue-500'}`}
-                                    onClick={() => setActiveField('resRem')}
-                                >
+                                <div className="bg-zinc-900 py-2 px-3 rounded-2xl border-2 border-blue-500 flex flex-col items-start shadow-lg">
                                     <span className="text-[14px] font-bold text-zinc-300 uppercase block text-left">端材寸法</span>
                                     <div className="flex items-baseline gap-1 mt-1">
-                                        <span className={`text-[28px] font-mono font-black ${activeField === 'resRem' ? 'text-orange-500' : 'text-blue-500'}`}>{format(materialResult.remainder)}</span>
+                                        <span className="text-[28px] font-mono font-black text-blue-500">{format(materialResult.remainder)}</span>
                                         <span className="text-[14px] font-bold text-zinc-400">㎜</span>
                                     </div>
                                 </div>
                             </section>
 
-                            <section className="space-y-2 pt-1">
+                            <section className="space-y-2 pt-1 text-left">
                                 <div className="flex items-center justify-between ml-1">
                                     <h3 className="text-[14px] font-bold text-zinc-300 uppercase">保存履歴</h3>
                                     <div className="flex items-center gap-1.5 shrink-0">
-                                        <button onClick={saveHistoryTotal} className="h-8 px-2 rounded-lg text-[14px] font-black flex items-center gap-1 btn-3d btn-3d-orange text-white whitespace-nowrap"><Icon name="save" size={16} />合計保存</button>
+                                        <button onClick={saveHistoryTotal} className="h-8 px-3 rounded-lg text-[13px] font-black flex items-center gap-1 btn-3d-orange-ios text-white whitespace-nowrap transition-all"><Icon name="save" size={16} />集計保存</button>
                                         <button onClick={() => setIsClearModalOpen(true)} className="h-8 w-10 flex items-center justify-center rounded-lg btn-3d btn-3d-zinc text-zinc-300 active:text-red-500"><Icon name="trash" size={18} /></button>
                                     </div>
                                 </div>
-                                <div className={`bg-zinc-900 py-2 px-3 rounded-2xl border border-orange-500 shadow-md transition-opacity ${isPendingClear ? 'opacity-60 grayscale' : ''}`}>
+                                <div className={`bg-zinc-900 py-2 px-3 rounded-2xl border-2 border-orange-500 shadow-md ${isPendingClear ? 'opacity-50 grayscale' : ''}`}>
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-baseline justify-between px-1">
-                                            <span className="text-[14px] font-bold text-zinc-400">総距離:</span>
-                                            <span className="text-[14px] font-bold text-zinc-200">{format(history.reduce((a,c)=>a+toNum(c.total),0))} ㎜</span>
+                                            <span className="text-zinc-400 text-[14px] font-bold">総距離:</span>
+                                            <span className="text-zinc-200 text-[14px] font-bold">{format(history.reduce((a,c)=>a+toNum(c.total),0))} mm</span>
                                         </div>
                                         <div className="flex items-center justify-between px-1">
                                             <div className="flex items-baseline gap-2">
-                                                <span className="text-[14px] font-bold text-zinc-400">総本数:</span>
+                                                <span className="text-zinc-400 text-[14px] font-bold">総本数:</span>
                                                 <div className="flex items-baseline gap-1">
                                                     <span className="text-xl font-mono font-black text-green-500 leading-none">{history.reduce((a,c)=>a+(c.pieces||0),0)}</span>
-                                                    <span className="text-[14px] font-bold text-zinc-300">本</span>
+                                                    <span className="text-xs font-bold text-zinc-300">本</span>
                                                 </div>
                                             </div>
                                             <div className="flex items-baseline gap-1.5">
-                                                <span className="text-[14px] font-bold text-zinc-400">総端材:</span>
-                                                <span className="text-base font-mono font-bold text-blue-400">{format(history.reduce((a,c)=>a+(toNum(c.remainder)||0),0))} ㎜</span>
+                                                <span className="text-zinc-400 text-[14px] font-bold">総端材:</span>
+                                                <span className="text-blue-400 text-base font-mono font-bold">{format(history.reduce((a,c)=>a+(toNum(c.remainder)||0),0))} mm</span>
                                             </div>
                                         </div>
                                     </div>
-                                    {isPendingClear && <div className="text-[12px] text-center text-orange-400 font-bold mt-1 uppercase tracking-tighter">合計保存済み - 次回保存でクリア</div>}
                                 </div>
-                                <div className="space-y-1.5">
-                                    {history.length === 0 ? <div className="text-center p-3 animate-fade-in italic text-zinc-500 text-[14px] font-bold">履歴はありません</div> : 
+                                <div className="space-y-1.5 overflow-hidden">
+                                    {history.length === 0 ? <div className="text-center p-3 italic text-zinc-500 text-[14px] font-bold">履歴なし</div> : 
                                     history.map(item => (
                                         <div key={item.id} className="bg-zinc-900 border border-zinc-800 rounded-xl flex items-stretch shadow-sm animate-fade-in overflow-hidden">
                                             <div className="flex flex-col justify-center min-w-0 flex-1 py-1.5 px-3">
-                                                <div className="flex items-baseline gap-1 text-[14px] font-bold text-zinc-300 leading-tight"><span>距離:</span><span className="font-mono text-zinc-200">{format(item.total)} ㎜</span></div>
+                                                <div className="flex items-baseline gap-1 text-zinc-300 text-[14px] font-bold leading-tight"><span>距離:</span><span className="text-zinc-200 font-mono">{format(item.total)} mm</span></div>
                                                 <div className="flex items-center gap-3 min-w-0 leading-none pb-0.5 mt-1">
-                                                    <div className="flex items-baseline gap-1 shrink-0"><span className="text-lg font-mono font-black text-green-500">{item.pieces}</span><span className="text-[14px] font-bold text-zinc-300">本</span></div>
-                                                    <div className="flex items-baseline gap-1 border-l border-zinc-700 pl-3 truncate"><span className="text-lg font-mono font-black text-blue-500">{format(item.remainder)}</span><span className="text-[14px] font-bold text-zinc-300">㎜</span></div>
+                                                    <div className="flex items-baseline gap-1 shrink-0"><span className="text-lg font-mono font-black text-green-500">{item.pieces}</span><span className="text-xs text-zinc-300 font-bold">本</span></div>
+                                                    <div className="flex items-baseline gap-1 border-l border-zinc-700 pl-3 truncate"><span className="text-lg font-mono font-black text-blue-500">{format(item.remainder)}</span><span className="text-xs text-zinc-300 font-bold">mm</span></div>
                                                 </div>
                                             </div>
                                             <button onClick={() => deleteHistoryItem(item.id)} className="w-12 shrink-0 bg-zinc-900/50 hover:bg-zinc-800 text-zinc-300 active:text-red-500 flex items-center justify-center border-l border-zinc-800"><Icon name="trash" size={20} /></button>
@@ -590,149 +552,80 @@
                                 </div>
                             </section>
 
-                            <section className="space-y-2 pt-3 border-t border-zinc-800">
-                                <h3 className="text-[14px] font-black text-orange-500 ml-1 uppercase block text-left">種類別 合計</h3>
+                            <section className="space-y-2 pt-3 border-t border-zinc-800 text-left">
+                                <h3 className="text-[14px] font-black text-orange-500 ml-1 uppercase block">種類別 集計</h3>
                                 <div className="space-y-2">
-                                    {savedTallies.length === 0 ? <div className="text-center p-4 bg-zinc-900/20 border border-dashed border-zinc-800 rounded-xl italic text-zinc-500 text-[14px] font-bold">履歴の合計を保存できます</div> : 
-                                    savedTallies.map(t => (
-                                        <div key={t.id} className="bg-zinc-900 rounded-xl border border-orange-500 flex items-stretch shadow-md animate-fade-in overflow-hidden">
+                                    {savedTallies.map(t => (
+                                        <div key={t.id} className="bg-zinc-900 rounded-xl border-2 border-orange-500 flex items-stretch shadow-md animate-fade-in overflow-hidden">
                                             <div className="flex-1 py-2 px-3 flex flex-col gap-1.5">
                                                 <div className="flex flex-col gap-1">
                                                     <div className="flex items-baseline justify-between px-1">
-                                                        <span className="text-[14px] font-bold text-zinc-400">距離:</span>
-                                                        <span className="text-[14px] font-bold text-zinc-200">{format(t.totalDistance)} ㎜</span>
+                                                        <span className="text-zinc-400 text-xs font-bold">距離:</span>
+                                                        <span className="text-zinc-200 text-xs font-bold">{format(t.totalDistance)} mm</span>
                                                     </div>
                                                     <div className="flex items-center justify-between px-1">
                                                         <div className="flex items-baseline gap-2">
-                                                            <span className="text-[14px] font-bold text-zinc-400">本数:</span>
+                                                            <span className="text-zinc-400 text-xs font-bold">本数:</span>
                                                             <div className="flex items-baseline gap-1">
                                                                 <span className="text-xl font-mono font-black text-green-500 leading-none">{t.pieces}</span>
-                                                                <span className="text-[14px] font-bold text-zinc-300">本</span>
+                                                                <span className="text-xs font-bold text-zinc-300">本</span>
                                                             </div>
                                                         </div>
                                                         <div className="flex items-baseline gap-1.5">
-                                                            <span className="text-[14px] font-bold text-zinc-400">端材:</span>
-                                                            <span className="text-base font-mono font-bold text-blue-400">{format(t.totalRemainder || 0)} ㎜</span>
+                                                            <span className="text-zinc-400 text-xs font-bold">端材:</span>
+                                                            <span className="text-blue-400 text-base font-mono font-bold">{format(t.totalRemainder || 0)} mm</span>
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <input type="text" value={t.name} onFocus={handleFocus} onChange={(e) => updateTallyName(t.id, e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg py-1.5 px-2 text-[14px] text-zinc-200 outline-none font-bold focus:border-orange-500 shadow-inner" placeholder="種類名を入力" />
+                                                <input type="text" value={t.name} onFocus={handleFocus} onChange={(e) => updateTallyName(t.id, e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg py-1.5 px-2 text-sm text-zinc-200 outline-none font-bold focus:border-orange-500 shadow-inner" placeholder="種類名を入力" />
                                             </div>
-                                            <button onClick={() => deleteTallyItem(t.id)} className="w-12 shrink-0 bg-zinc-900/50 hover:bg-zinc-800 text-zinc-300 active:text-red-500 flex items-center justify-center border-l border-zinc-800"><Icon name="trash" size={20} /></button>
+                                            <button onClick={() => {
+                                                const updated = savedTallies.filter(st => st.id !== t.id);
+                                                setSavedTallies(updated);
+                                                localStorage.setItem('gradient_calc_savedTallies_v4', JSON.stringify(updated));
+                                            }} className="w-12 shrink-0 bg-zinc-900/50 hover:bg-zinc-800 text-zinc-300 active:text-red-500 flex items-center justify-center border-l border-zinc-800"><Icon name="trash" size={20} /></button>
                                         </div>
                                     ))}
                                 </div>
                             </section>
                         </div>
                     ) : (
-                        <div className="flex flex-col gap-3 animate-fade-in">
+                        /* 勾配計算画面 */
+                        <div className="flex flex-col gap-3 animate-fade-in text-left">
                             <div className="bg-zinc-900 rounded-2xl overflow-hidden border border-zinc-700 shadow-xl">
                                 <div className="flex border-b border-zinc-700">
-                                    <div 
-                                        className={`relative flex-1 px-3 h-12 border-r border-zinc-700 flex flex-col justify-center transition-all ${activeField === 'y' ? 'bg-zinc-800 ring-2 ring-inset ring-orange-500 z-10' : ''}`}
-                                        onClick={() => setActiveField('y')}
-                                    >
-                                        <span className="text-[14px] font-bold text-zinc-400 absolute top-1 left-3">勾配 (100→↕︎)</span>
-                                        <input 
-                                            type="text" 
-                                            inputMode="none"
-                                            value={y} 
-                                            onChange={(e) => updateFromY(e.target.value)}
-                                            onFocus={(e) => { handleFocus(e); setActiveField('y'); }}
-                                            className="w-full h-full bg-transparent text-right text-[20px] text-white font-bold outline-none font-mono pt-4 pr-1" 
-                                            placeholder="0" 
-                                        />
+                                    <div className={`relative flex-1 px-3 h-12 border-r border-zinc-700 flex flex-col justify-center transition-all ${activeField === 'y' ? 'bg-zinc-800 ring-2 ring-inset ring-orange-500 z-10' : ''}`} onClick={() => setActiveField('y')}>
+                                        <span className="text-[14px] font-bold text-zinc-400 absolute top-1 left-3 uppercase">勾配 (100→↕︎)</span>
+                                        <input type="text" inputMode="none" value={y} onFocus={handleFocus} className="w-full h-full bg-transparent text-center text-[20px] text-white font-bold outline-none font-mono pt-4" placeholder="100㎜に対して" />
                                     </div>
-                                    <div 
-                                        className={`relative flex-1 px-3 h-12 flex flex-col justify-center transition-all ${activeField === 'x' ? 'bg-zinc-800 ring-2 ring-inset ring-orange-500 z-10' : ''}`}
-                                        onClick={() => setActiveField('x')}
-                                    >
-                                        <span className="text-[14px] font-bold text-zinc-400 absolute top-1 left-3">角度</span>
-                                        <input 
-                                            type="text" 
-                                            inputMode="none"
-                                            value={x} 
-                                            onChange={(e) => updateFromX(e.target.value)}
-                                            onFocus={(e) => { handleFocus(e); setActiveField('x'); }}
-                                            className="w-full h-full bg-transparent text-right text-[20px] text-white font-bold outline-none font-mono pt-4 pr-1" 
-                                            placeholder="0" 
-                                        />
+                                    <div className={`relative flex-1 px-3 h-12 flex flex-col justify-center transition-all ${activeField === 'x' ? 'bg-zinc-800 ring-2 ring-inset ring-orange-500 z-10' : ''}`} onClick={() => setActiveField('x')}>
+                                        <span className="text-[14px] font-bold text-zinc-400 absolute top-1 left-3 uppercase">角度</span>
+                                        <input type="text" inputMode="none" value={x} onFocus={handleFocus} className="w-full h-full bg-transparent text-center text-[20px] text-white font-bold outline-none font-mono pt-4" placeholder="勾配or角度を記入" />
                                     </div>
                                 </div>
-
-                                <div 
-                                    className={`relative px-3 h-[3.5rem] border-b border-zinc-700 flex flex-col justify-center transition-all ${activeField === 'c' ? 'bg-zinc-800 ring-2 ring-inset ring-orange-500 z-10' : ''}`}
-                                    onClick={() => setActiveField('c')}
-                                >
-                                    <span className="text-[14px] font-bold text-zinc-400 absolute top-1 left-3">水平寸法</span>
-                                    <input 
-                                        type="text" 
-                                        inputMode="none"
-                                        value={format(c)} 
-                                        onChange={(e) => updateFromC(unformat(e.target.value))}
-                                        onFocus={(e) => { handleFocus(e); setActiveField('c'); }}
-                                        className="w-full h-full bg-transparent text-right text-[26px] text-white font-black outline-none font-mono pt-5 pr-8" 
-                                        placeholder="0" 
-                                    />
-                                    <span className="absolute right-3 top-1/2 mt-1 text-zinc-400 font-black text-[14px] pointer-events-none">㎜</span>
+                                <div className={`relative px-3 h-[3.5rem] border-b border-zinc-700 flex flex-col justify-center transition-all ${activeField === 'c' ? 'bg-zinc-800 ring-2 ring-inset ring-orange-500 z-10' : ''}`} onClick={() => setActiveField('c')}>
+                                    <span className="text-[14px] font-bold text-zinc-400 absolute top-1 left-3 uppercase">水平寸法</span>
+                                    <input type="text" inputMode="none" value={format(c)} onFocus={handleFocus} className="w-full h-full bg-transparent text-center text-[26px] text-white font-black outline-none font-mono pt-5" placeholder="水平の距離or長さ" />
+                                    <span className="absolute right-3 top-1/2 mt-1 text-zinc-400 font-black text-[14px]">㎜</span>
                                 </div>
-
                                 <div className="grid grid-cols-4 bg-[#27272a]">
                                     {[7, 8, 9, 'C', 4, 5, 6, 'AC', 1, 2, 3, '⏎', 0, '00', '.'].map((key, i) => {
                                         const isEnter = key === '⏎';
-                                        const isOrange = isEnter;
                                         const isGray = key === 'C' || key === 'AC';
-                                        const bgClass = isOrange ? 'bg-[#ea580c] text-white' : isGray ? 'bg-[#3f3f46] text-white' : 'bg-[#18181b] text-white';
+                                        const bgClass = isEnter ? 'btn-3d-silver-ios text-zinc-800' : isGray ? 'bg-[#3f3f46] text-white' : 'bg-[#18181b] text-white';
                                         return (
-                                            <button
-                                                key={i}
-                                                onClick={(e) => { e.preventDefault(); handleKeypad(key); }}
-                                                className={`flex items-center justify-center text-[21px] font-bold h-[3.2rem] border-r border-b border-[#27272a] active:opacity-60 ${bgClass} ${isEnter ? 'row-span-2 h-auto' : ''}`}
-                                            >
-                                                {isEnter ? <Icon name="enter" size={24} /> : key}
-                                            </button>
+                                            <button key={i} onClick={(e) => { e.preventDefault(); handleKeypad(key); }} className={`flex items-center justify-center text-[21px] font-bold h-[3.2rem] border-r border-b border-zinc-700 active:opacity-60 ${bgClass} ${isEnter ? 'row-span-2 h-auto' : ''}`}>{isEnter ? <Icon name="enter" size={24} /> : key}</button>
                                         );
                                     })}
                                 </div>
                             </div>
-
                             <section className="grid grid-cols-2 gap-2 mt-2">
-                                <div 
-                                    className={`bg-zinc-900 py-2 px-3 rounded-2xl border-2 flex flex-col items-start shadow-lg transition-all ${activeField === 'a' ? 'border-orange-500 shadow-[0_0_15px_rgba(249,115,22,0.3)]' : 'border-green-500'}`}
-                                    onClick={() => setActiveField('a')}
-                                >
-                                    <span className="text-[14px] font-bold text-zinc-300 uppercase block text-left">勾配幅</span>
-                                    <div className="flex items-baseline gap-1 mt-1">
-                                        <span className={`text-[28px] font-mono font-black ${activeField === 'a' ? 'text-orange-500' : 'text-green-500'}`}>
-                                            {format(a) || '0'}
-                                        </span>
-                                        <span className="text-[14px] font-bold text-zinc-400">㎜</span>
-                                    </div>
-                                </div>
-                                <div 
-                                    className={`bg-zinc-900 py-2 px-3 rounded-2xl border-2 flex flex-col items-start shadow-lg transition-all ${activeField === 'b' ? 'border-orange-500 shadow-[0_0_15px_rgba(249,115,22,0.3)]' : 'border-blue-500'}`}
-                                    onClick={() => setActiveField('b')}
-                                >
-                                    <span className="text-[14px] font-bold text-zinc-300 uppercase block text-left">斜辺</span>
-                                    <div className="flex items-baseline gap-1 mt-1">
-                                        <span className={`text-[28px] font-mono font-black ${activeField === 'b' ? 'text-orange-500' : 'text-blue-500'}`}>
-                                            {format(b) || '0'}
-                                        </span>
-                                        <span className="text-[14px] font-bold text-zinc-400">㎜</span>
-                                    </div>
-                                </div>
+                                <div className="bg-zinc-900 py-2 px-3 rounded-2xl border-2 border-green-500 flex flex-col items-start shadow-lg"><span className="text-[14px] font-bold text-zinc-300 uppercase block text-left">勾配幅</span><div className="flex items-baseline gap-1 mt-1"><span className="text-[28px] font-mono font-black text-green-500">{format(a) || '0'}</span><span className="text-[14px] font-bold text-zinc-400">㎜</span></div></div>
+                                <div className="bg-zinc-900 py-2 px-3 rounded-2xl border-2 border-blue-500 flex flex-col items-start shadow-lg"><span className="text-[14px] font-bold text-zinc-300 uppercase block text-left">斜辺</span><div className="flex items-baseline gap-1 mt-1"><span className="text-[28px] font-mono font-black text-blue-500">{format(b) || '0'}</span><span className="text-[14px] font-bold text-zinc-400">㎜</span></div></div>
                             </section>
-
                             <div className="bg-zinc-900 rounded-2xl p-4 border border-zinc-700 shadow-2xl overflow-hidden mt-2">
                                 <div className="flex items-center justify-between mb-2 text-left">
-                                    <div className="flex items-center gap-2 font-bold text-zinc-200 text-[14px] uppercase tracking-widest">
-                                        <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></div>
-                                        プレビュー
-                                    </div>
-                                    <svg width="60" height="35" viewBox="0 0 85 50" className="text-[#d4d4d8]">
-                                        <path d="M 10 35 L 55 35 L 55 15 Z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-                                        <text x="32" y="47" fontSize="10" textAnchor="middle" fill="currentColor" fontWeight="900">100</text>
-                                    </svg>
+                                    <div className="flex items-center gap-2 font-bold text-zinc-200 text-[14px] uppercase tracking-widest"><div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></div>プレビュー</div>
                                 </div>
                                 <div className="flex justify-center h-44 bg-zinc-950/30 rounded-xl border border-zinc-800/50">
                                     <svg viewBox="0 0 320 200" className="w-full h-full p-2 overflow-visible">
